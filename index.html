@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>题库管理系统</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- 引入SheetJS库用于Excel文件处理 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>题库管理系统</h1>
+            <nav>
+                <button id="convertTab" class="tab-btn active">Excel转JSON</button>
+                <button id="practiceTab" class="tab-btn">题库练习</button>
+                <button id="historyTab" class="tab-btn">历史分数</button>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Excel转JSON页面 -->
+            <section id="convertSection" class="tab-content active">
+                <div class="card">
+                    <h2>Excel题库转JSON</h2>
+                    <div class="upload-area">
+                        <input type="file" id="excelFile" accept=".xlsx,.xls" style="display: none;">
+                        <label for="excelFile" class="upload-btn">
+                            <i class="icon">📁</i>
+                            选择Excel文件
+                        </label>
+                        <div id="excelFileName" class="file-name"></div>
+                    </div>
+                    <button id="convertBtn" class="action-btn" disabled>转换为JSON</button>
+                    <div id="convertResult" class="result-area"></div>
+                </div>
+            </section>
+
+            <!-- 题库练习页面 -->
+            <section id="practiceSection" class="tab-content">
+                <div class="card">
+                    <h2>题库练习</h2>
+                    
+                    <!-- JSON文件上传区域 -->
+                    <div class="upload-section">
+                        <h3>上传题库文件</h3>
+                        <div class="upload-area">
+                            <input type="file" id="jsonFiles" accept=".json" multiple style="display: none;">
+                            <label for="jsonFiles" class="upload-btn">
+                                <i class="icon">📄</i>
+                                选择JSON文件（可多选）
+                            </label>
+                            <div id="jsonFileNames" class="file-names"></div>
+                        </div>
+                        <button id="uploadJsonBtn" class="action-btn" disabled>上传题库</button>
+                    </div>
+
+                    <!-- 已上传的题库列表 -->
+                    <div class="library-section">
+                        <h3>已上传题库</h3>
+                        <div id="libraryList" class="library-list"></div>
+                    </div>
+
+                    <!-- 练习控制 -->
+                    <div class="practice-controls" style="display: none;">
+                        <h3>练习设置</h3>
+                        <div class="settings">
+                            <label>
+                                <input type="checkbox" id="shuffleQuestions"> 随机题目顺序
+                            </label>
+                            <label>
+                                <input type="checkbox" id="shuffleOptions"> 随机选项顺序
+                            </label>
+                            <select id="difficultyFilter">
+                                <option value="all">所有难度</option>
+                                <option value="易">简单</option>
+                                <option value="中">中等</option>
+                                <option value="难">困难</option>
+                            </select>
+                            <select id="questionTypeFilter">
+                                <option value="all">所有题型</option>
+                                <option value="单选题">单选题</option>
+                                <option value="多选题">多选题</option>
+                                <option value="判断题">判断题</option>
+                                <option value="简答题">简答题</option>
+                            </select>
+                        </div>
+                        <button id="startPracticeBtn" class="action-btn primary">开始练习</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 历史分数页面 -->
+            <section id="historySection" class="tab-content">
+                <div class="card">
+                    <h2>历史分数记录</h2>
+                    
+                    <div class="history-controls">
+                        <button id="clearAllHistoryBtn" class="action-btn">清空所有记录</button>
+                        <div class="history-stats">
+                            <span>总记录数: <span id="totalHistoryCount">0</span></span>
+                        </div>
+                    </div>
+                    
+                    <div id="historyList" class="history-list">
+                        <p style="color: #6c757d; text-align: center;">暂无历史记录</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 练习界面 -->
+            <section id="quizSection" class="tab-content" style="display: none;">
+                <div class="quiz-container">
+                    <div class="quiz-header">
+                        <div class="progress-info">
+                            <span id="questionProgress">1 / 10</span>
+                            <span id="timer">00:00</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="question-card">
+                        <div class="question-meta">
+                            <span id="questionType" class="type-tag"></span>
+                            <span id="questionDifficulty" class="difficulty-tag"></span>
+                        </div>
+                        <h3 id="questionText" class="question-text"></h3>
+                        
+                        <div id="optionsContainer" class="options-container"></div>
+                        
+                        <div class="question-actions">
+                            <button id="prevBtn" class="action-btn" disabled>上一题</button>
+                            <button id="nextBtn" class="action-btn">下一题</button>
+                            <button id="submitBtn" class="action-btn primary" style="display: none;">提交答案</button>
+                        </div>
+                    </div>
+
+                    <div id="explanation" class="explanation" style="display: none;">
+                        <h4>答案解析</h4>
+                        <p id="explanationText"></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 结果页面 -->
+            <section id="resultSection" class="tab-content" style="display: none;">
+                <div class="result-container">
+                    <h2>练习结果</h2>
+                    <div class="score-summary">
+                        <div class="score-item">
+                            <span class="score-label">正确率</span>
+                            <span id="correctRate" class="score-value"></span>
+                        </div>
+                        <div class="score-item">
+                            <span class="score-label">总题数</span>
+                            <span id="totalQuestions" class="score-value"></span>
+                        </div>
+                        <div class="score-item">
+                            <span class="score-label">正确数</span>
+                            <span id="correctCount" class="score-value"></span>
+                        </div>
+                        <div class="score-item">
+                            <span class="score-label">用时</span>
+                            <span id="totalTime" class="score-value"></span>
+                        </div>
+                    </div>
+
+                    <div class="result-actions">
+                        <button id="reviewBtn" class="action-btn">查看答案</button>
+                        <button id="restartBtn" class="action-btn primary">重新练习</button>
+                        <button id="backToLibraryBtn" class="action-btn">返回题库</button>
+                    </div>
+
+                    <div id="reviewContainer" class="review-container" style="display: none;">
+                        <h3>答题详情</h3>
+                        <div id="reviewList" class="review-list"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
