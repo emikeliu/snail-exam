@@ -352,6 +352,9 @@ function saveLibraryToStorage(library) {
 // 从本地存储加载题库
 function loadLibraryFromStorage() {
     const libraries = JSON.parse(localStorage.getItem('questionLibraries') || '[]');
+    // 加载选中的题库ID
+    const selectedIds = JSON.parse(localStorage.getItem('selectedLibraryIds') || '[]');
+    selectedLibraryIds = new Set(selectedIds);
     displayLibraryList(libraries);
 }
 
@@ -364,7 +367,7 @@ function displayLibraryList(libraries) {
     }
     
     elements.libraryList.innerHTML = libraries.map(library => `
-        <div class="library-item" data-id="${library.id}" onclick="toggleLibrarySelection(${library.id})">
+        <div class="library-item${selectedLibraryIds.has(library.id) ? ' selected' : ''}" data-id="${library.id}" onclick="toggleLibrarySelection(${library.id})">
             <h4>${library.name}</h4>
             <p>文件名: ${library.fileName}</p>
             <p>上传时间: ${new Date(library.uploadTime).toLocaleString()}</p>
@@ -388,6 +391,9 @@ function toggleLibrarySelection(libraryId) {
         libraryItem.classList.add('selected');
     }
     
+    // 保存选中状态到本地存储
+    localStorage.setItem('selectedLibraryIds', JSON.stringify(Array.from(selectedLibraryIds)));
+    
     // 更新开始练习按钮状态
     elements.startPracticeBtn.disabled = selectedLibraryIds.size === 0;
 }
@@ -402,6 +408,8 @@ function deleteLibrary(libraryId, event) {
         localStorage.setItem('questionLibraries', JSON.stringify(libraries));
         
         selectedLibraryIds.delete(libraryId);
+        // 更新本地存储中的选中状态
+        localStorage.setItem('selectedLibraryIds', JSON.stringify(Array.from(selectedLibraryIds)));
         loadLibraryFromStorage();
         
         showMessage('题库已删除', 'success');
