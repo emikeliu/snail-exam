@@ -529,6 +529,24 @@ function displayOptions(question) {
         return;
     }
     
+    // 判断题特殊处理
+    if (question.type === '判断题') {
+        const userAnswer = userAnswers[currentQuestionIndex] || '';
+        elements.optionsContainer.innerHTML = `
+            <div class="judgment-options">
+                <div class="option-item ${userAnswer === '对' ? 'selected' : ''}" onclick="selectJudgmentOption('对')">
+                    <input type="radio" id="option_true" name="judgment_option" value="对" ${userAnswer === '对' ? 'checked' : ''}>
+                    <label for="option_true" class="option-text">对</label>
+                </div>
+                <div class="option-item ${userAnswer === '错' ? 'selected' : ''}" onclick="selectJudgmentOption('错')">
+                    <input type="radio" id="option_false" name="judgment_option" value="错" ${userAnswer === '错' ? 'checked' : ''}>
+                    <label for="option_false" class="option-text">错</label>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
     const options = Object.entries(question.options);
     const questionId = `${currentQuestionIndex}_${question.id || question.description}`;
     
@@ -591,6 +609,23 @@ function selectOption(optionKey, isMultipleChoice) {
     
     // 只更新选中状态，不重新打乱选项
     updateOptionSelection(optionKey, isMultipleChoice);
+}
+
+// 选择判断题选项
+function selectJudgmentOption(value) {
+    userAnswers[currentQuestionIndex] = value;
+    
+    // 更新选中状态
+    document.querySelectorAll('.judgment-options .option-item').forEach(item => {
+        item.classList.remove('selected');
+        item.querySelector('input').checked = false;
+    });
+    
+    const selectedItem = document.querySelector(`.judgment-options .option-item input[value="${value}"]`);
+    if (selectedItem) {
+        selectedItem.checked = true;
+        selectedItem.closest('.option-item').classList.add('selected');
+    }
 }
 
 // 保存简答题答案
@@ -774,6 +809,9 @@ function checkAnswer(question, userAnswer, correctAnswer) {
         }
         
         return true;
+    } else if (question.type === '判断题') {
+        // 判断题答案为"对"或"错"
+        return userAnswer === correctAnswer;
     } else {
         return userAnswer === correctAnswer;
     }
@@ -889,6 +927,25 @@ function displayDetailedResults() {
                         <span>你的答案: ${userAnswer}</span>
                         <span>参考答案: ${correctAnswer}</span>
                         <span>不计分</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 判断题特殊处理
+        if (result.question.type === '判断题') {
+            const userAnswer = result.userAnswer || '未作答';
+            const correctAnswer = result.correctAnswer || '无标准答案';
+            
+            return `
+                <div class="review-item ${statusClass}">
+                    <div class="review-question">
+                        ${index + 1}. ${result.question.description}
+                    </div>
+                    <div class="review-answer">
+                        <span>你的答案: ${userAnswer}</span>
+                        <span>正确答案: ${correctAnswer}</span>
+                        <span>${statusText}</span>
                     </div>
                 </div>
             `;
