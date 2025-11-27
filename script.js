@@ -489,9 +489,9 @@ function displayQuestion() {
     // 更新按钮状态
     elements.prevBtn.disabled = currentQuestionIndex === 0;
     
-    // 检查是否是简答题且已经显示过答案
+    // 检查是否是简答题或填空题且已经显示过答案
     const questionId = `${currentQuestionIndex}_${question.id || question.description}`;
-    if (question.type === '简答题' && shortAnswerAnswerShown.has(questionId)) {
+    if ((question.type === '简答题' || question.type === '填空题') && shortAnswerAnswerShown.has(questionId)) {
         elements.nextBtn.textContent = '查看答案后继续';
     } else {
         elements.nextBtn.textContent = currentQuestionIndex === currentQuestions.length - 1 ? '提交' : '下一题';
@@ -505,14 +505,15 @@ function displayQuestion() {
 
 // 显示选项
 function displayOptions(question) {
-    // 简答题特殊处理
-    if (question.type === '简答题') {
+    // 简答题和填空题特殊处理
+    if (question.type === '简答题' || question.type === '填空题') {
         const userAnswer = userAnswers[currentQuestionIndex] || '';
+        const placeholder = question.type === '填空题' ? '请填入答案...' : '请输入你的答案...';
         elements.optionsContainer.innerHTML = `
             <div class="short-answer-container">
                 <textarea id="shortAnswerInput"
                           class="short-answer-input"
-                          placeholder="请输入你的答案..."
+                          placeholder="${placeholder}"
                           rows="4"
                           oninput="handleShortAnswerInput()">${userAnswer}</textarea>
             </div>
@@ -639,8 +640,8 @@ function previousQuestion() {
 function nextQuestion() {
     const question = currentQuestions[currentQuestionIndex];
     
-    // 如果是简答题，先保存答案
-    if (question.type === '简答题') {
+    // 如果是简答题或填空题，先保存答案
+    if (question.type === '简答题' || question.type === '填空题') {
         saveShortAnswer();
         
         // 检查是否已经显示过答案
@@ -709,13 +710,13 @@ function calculateResults() {
         const userAnswer = userAnswers[index];
         const correctAnswer = question.correctAnswer;
         
-        // 简答题不计分，但仍显示在结果中
-        if (question.type === '简答题') {
+        // 简答题和填空题不计分，但仍显示在结果中
+        if (question.type === '简答题' || question.type === '填空题') {
             detailedResults.push({
                 question: question,
                 userAnswer: userAnswer,
                 correctAnswer: correctAnswer,
-                isCorrect: null // 简答题不标记对错
+                isCorrect: null // 简答题和填空题不标记对错
             });
         } else {
             const isCorrect = checkAnswer(question, userAnswer, correctAnswer);
@@ -777,11 +778,11 @@ function displayResults(results) {
     elements.correctRate.textContent = results.correctRate + '%';
     elements.totalTime.textContent = formatTime(results.totalTime);
     
-    // 如果有简答题，显示说明
+    // 如果有简答题或填空题，显示说明
     if (results.gradedQuestionsCount < results.totalQuestions) {
-        const shortAnswerCount = results.totalQuestions - results.gradedQuestionsCount;
+        const nonGradedCount = results.totalQuestions - results.gradedQuestionsCount;
         const scoreNote = document.createElement('p');
-        scoreNote.textContent = `注：包含${shortAnswerCount}道简答题，不计入分数统计`;
+        scoreNote.textContent = `注：包含${nonGradedCount}道简答题/填空题，不计入分数统计`;
         scoreNote.style.fontSize = '14px';
         scoreNote.style.color = '#6c757d';
         scoreNote.style.marginTop = '10px';
@@ -866,8 +867,8 @@ function displayDetailedResults() {
             }
         };
         
-        // 简答题特殊处理
-        if (result.question.type === '简答题') {
+        // 简答题和填空题特殊处理
+        if (result.question.type === '简答题' || result.question.type === '填空题') {
             const userAnswer = result.userAnswer || '未作答';
             const correctAnswer = result.correctAnswer || '无标准答案';
             
