@@ -2,6 +2,7 @@
 let currentQuestions = [];
 let currentQuestionIndex = 0;
 let userAnswers = [];
+let userScores = []; // 存储用户对简答题和填空题的自评分数
 let startTime = null;
 let timerInterval = null;
 let selectedLibraryIds = new Set();
@@ -457,6 +458,7 @@ function startPractice() {
     currentQuestions = allQuestions;
     currentQuestionIndex = 0;
     userAnswers = new Array(currentQuestions.length).fill(null);
+    userScores = new Array(currentQuestions.length).fill(null); // 初始化用户自评分数数组
     questionsShuffledOptions.clear(); // 清空之前的选项顺序记录
     shortAnswerAnswerShown.clear(); // 清空简答题答案显示状态
     startTime = Date.now();
@@ -645,6 +647,12 @@ function handleShortAnswerInput() {
     }
 }
 
+// 设置用户自评分数
+function setSelfScore(questionIndex, score) {
+    userScores[questionIndex] = score;
+    showMessage(`已设置${score === 1 ? '正确' : '错误'}`, 'success');
+}
+
 // 更新选项选中状态（不重新打乱选项）
 function updateOptionSelection(optionKey, isMultipleChoice) {
     const question = currentQuestions[currentQuestionIndex];
@@ -713,11 +721,28 @@ function nextQuestion() {
 function showShortAnswerExplanation(question) {
     const userAnswer = userAnswers[currentQuestionIndex] || '未作答';
     const correctAnswer = question.correctAnswer || '无标准答案';
+    const questionId = `${currentQuestionIndex}_${question.id || question.description}`;
+    
+    // 检查是否已经评分
+    const existingScore = userScores && userScores[currentQuestionIndex] !== undefined ? userScores[currentQuestionIndex] : null;
     
     elements.explanationText.innerHTML = `
         <div class="short-answer-review">
             <p><strong>你的答案：</strong>${userAnswer}</p>
             <p><strong>参考答案：</strong>${correctAnswer}</p>
+            <div class="score-section">
+                <p><strong>给自己打分：</strong></p>
+                <div class="score-options">
+                    <label class="score-option">
+                        <input type="radio" name="score_${questionId}" value="1" ${existingScore === 1 ? 'checked' : ''} onchange="setSelfScore(${currentQuestionIndex}, 1)">
+                        <span>正确 (1分)</span>
+                    </label>
+                    <label class="score-option">
+                        <input type="radio" name="score_${questionId}" value="0" ${existingScore === 0 ? 'checked' : ''} onchange="setSelfScore(${currentQuestionIndex}, 0)">
+                        <span>错误 (0分)</span>
+                    </label>
+                </div>
+            </div>
         </div>
     `;
     
@@ -746,20 +771,35 @@ function submitQuiz() {
 // 计算结果
 function calculateResults() {
     let correctCount = 0;
-    let gradedQuestionsCount = 0; // 不包括简答题的题目数量
+    let autoGradedQuestionsCount = 0; // 自动评分的题目数量（不包括简答题和填空题）
+    let selfGradedQuestionsCount = 0; // 用户自评的题目数量（简答题和填空题）
+    let selfGradedCorrectCount = 0; // 用户自评的正确数量
     const detailedResults = [];
     
     currentQuestions.forEach((question, index) => {
         const userAnswer = userAnswers[index];
         const correctAnswer = question.correctAnswer;
         
-        // 简答题和填空题不计分，但仍显示在结果中
+        // 简答题和填空题使用用户自评分数
         if (question.type === '简答题' || question.type === '填空题') {
+            const selfScore = userScores[index];
+            const isCorrect = selfScore === 1; // 1表示正确，0表示错误
+            
+            if (selfScore !== null && selfScore !== undefined) {
+                selfGradedQuestionsCount++;
+                if (isCorrect) {
+                    selfGradedCorrectCount++;
+                    correctCount++;
+                }
+            }
+            
             detailedResults.push({
                 question: question,
                 userAnswer: userAnswer,
                 correctAnswer: correctAnswer,
-                isCorrect: null // 简答题和填空题不标记对错
+                isCorrect: isCorrect,
+                isSelfGraded: true,
+                selfScore: selfScore
             });
         } else {
             const isCorrect = checkAnswer(question, userAnswer, correctAnswer);
@@ -768,24 +808,28 @@ function calculateResults() {
                 correctCount++;
             }
             
-            gradedQuestionsCount++; // 只有非简答题才计入总分
+            autoGradedQuestionsCount++; // 只有非简答题才计入自动评分
             
             detailedResults.push({
                 question: question,
                 userAnswer: userAnswer,
                 correctAnswer: correctAnswer,
-                isCorrect: isCorrect
+                isCorrect: isCorrect,
+                isSelfGraded: false
             });
         }
     });
     
     const totalTime = Math.floor((Date.now() - startTime) / 1000);
+    const totalGradedQuestionsCount = autoGradedQuestionsCount + selfGradedQuestionsCount;
     
     return {
         totalQuestions: currentQuestions.length,
-        gradedQuestionsCount: gradedQuestionsCount, // 实际计分的题目数量
+        autoGradedQuestionsCount: autoGradedQuestionsCount,
+        selfGradedQuestionsCount: selfGradedQuestionsCount,
+        totalGradedQuestionsCount: totalGradedQuestionsCount,
         correctCount: correctCount,
-        correctRate: gradedQuestionsCount > 0 ? Math.round((correctCount / gradedQuestionsCount) * 100) : 0,
+        correctRate: totalGradedQuestionsCount > 0 ? Math.round((correctCount / totalGradedQuestionsCount) * 100) : 0,
         totalTime: totalTime,
         detailedResults: detailedResults
     };
@@ -824,18 +868,19 @@ function displayResults(results) {
     elements.correctRate.textContent = results.correctRate + '%';
     elements.totalTime.textContent = formatTime(results.totalTime);
     
-    // 如果有简答题或填空题，显示说明
-    if (results.gradedQuestionsCount < results.totalQuestions) {
-        const nonGradedCount = results.totalQuestions - results.gradedQuestionsCount;
-        const scoreNote = document.createElement('p');
-        scoreNote.textContent = `注：包含${nonGradedCount}道简答题/填空题，不计入分数统计`;
-        scoreNote.style.fontSize = '14px';
-        scoreNote.style.color = '#6c757d';
-        scoreNote.style.marginTop = '10px';
-        
-        // 添加到正确率后面
-        elements.correctRate.parentNode.appendChild(scoreNote);
+    // 显示评分说明
+    const scoreNote = document.createElement('p');
+    if (results.selfGradedQuestionsCount > 0) {
+        scoreNote.textContent = `注：包含${results.autoGradedQuestionsCount}道自动评分题目和${results.selfGradedQuestionsCount}道自评题目`;
+    } else {
+        scoreNote.textContent = `注：全部${results.autoGradedQuestionsCount}道题目为自动评分`;
     }
+    scoreNote.style.fontSize = '14px';
+    scoreNote.style.color = '#6c757d';
+    scoreNote.style.marginTop = '10px';
+    
+    // 添加到正确率后面
+    elements.correctRate.parentNode.appendChild(scoreNote);
     
     // 存储详细结果供查看
     window.currentResults = results;
@@ -917,16 +962,19 @@ function displayDetailedResults() {
         if (result.question.type === '简答题' || result.question.type === '填空题') {
             const userAnswer = result.userAnswer || '未作答';
             const correctAnswer = result.correctAnswer || '无标准答案';
+            const selfScore = result.selfScore;
+            const scoreText = selfScore === 1 ? '自评: 正确' : (selfScore === 0 ? '自评: 错误' : '未评分');
+            const scoreClass = selfScore === 1 ? 'correct' : (selfScore === 0 ? 'incorrect' : 'ungraded');
             
             return `
-                <div class="review-item short-answer-review-item">
+                <div class="review-item short-answer-review-item ${scoreClass}">
                     <div class="review-question">
                         ${index + 1}. ${result.question.description}
                     </div>
                     <div class="review-answer">
                         <span>你的答案: ${userAnswer}</span>
                         <span>参考答案: ${correctAnswer}</span>
-                        <span>不计分</span>
+                        <span>${scoreText}</span>
                     </div>
                 </div>
             `;
@@ -979,6 +1027,7 @@ function backToLibrary() {
     currentQuestions = [];
     currentQuestionIndex = 0;
     userAnswers = [];
+    userScores = []; // 清空用户自评分数
     selectedLibraryIds.clear();
     questionsShuffledOptions.clear();
     shortAnswerAnswerShown.clear(); // 清空简答题答案显示状态
