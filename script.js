@@ -529,7 +529,7 @@ function displayOptions(question) {
         return;
     }
     
-    // 判断题特殊处理
+    // 判断题特殊处理 - 强制显示"对"和"错"两个选项
     if (question.type === '判断题') {
         const userAnswer = userAnswers[currentQuestionIndex] || '';
         elements.optionsContainer.innerHTML = `
