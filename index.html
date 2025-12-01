@@ -15,6 +15,7 @@
             <nav>
                 <button id="convertTab" class="tab-btn active">Excel转JSON</button>
                 <button id="practiceTab" class="tab-btn">题库练习</button>
+                <button id="wrongQuestionsTab" class="tab-btn">错题练习</button>
                 <button id="historyTab" class="tab-btn">历史分数</button>
             </nav>
         </header>
@@ -72,6 +73,13 @@
                             <label>
                                 <input type="checkbox" id="shuffleOptions"> 随机选项顺序
                             </label>
+                            <div class="random-count-setting">
+                                <label for="randomQuestionCount">随机抽取题目数量:</label>
+                                <input type="number" id="randomQuestionCount" min="1" placeholder="不限制" class="number-input">
+                                <label>
+                                    <input type="checkbox" id="enableRandomCount"> 启用随机抽取
+                                </label>
+                            </div>
                             <select id="difficultyFilter">
                                 <option value="all">所有难度</option>
                                 <option value="易">简单</option>
@@ -92,6 +100,52 @@
                 </div>
             </section>
 
+            <!-- 错题练习页面 -->
+            <section id="wrongQuestionsSection" class="tab-content">
+                <div class="card">
+                    <h2>错题练习</h2>
+                    
+                    <div class="wrong-questions-controls">
+                        <h3>错题管理</h3>
+                        <div class="wrong-questions-stats">
+                            <span>错题总数: <span id="totalWrongQuestionsCount">0</span></span>
+                            <button id="clearAllWrongQuestionsBtn" class="action-btn">清空所有错题</button>
+                        </div>
+                    </div>
+                    
+                    <div id="wrongQuestionsList" class="wrong-questions-list">
+                        <p style="color: #6c757d; text-align: center;">暂无错题，请先完成练习</p>
+                    </div>
+                    
+                    <div class="wrong-practice-controls" style="display: none;">
+                        <h3>错题练习设置</h3>
+                        <div class="settings">
+                            <label>
+                                <input type="checkbox" id="shuffleWrongQuestions"> 随机题目顺序
+                            </label>
+                            <label>
+                                <input type="checkbox" id="shuffleWrongOptions"> 随机选项顺序
+                            </label>
+                            <select id="wrongDifficultyFilter">
+                                <option value="all">所有难度</option>
+                                <option value="易">简单</option>
+                                <option value="中">中等</option>
+                                <option value="难">困难</option>
+                            </select>
+                            <select id="wrongQuestionTypeFilter">
+                                <option value="all">所有题型</option>
+                                <option value="单选题">单选题</option>
+                                <option value="多选题">多选题</option>
+                                <option value="判断题">判断题</option>
+                                <option value="简答题">简答题</option>
+                                <option value="填空题">填空题</option>
+                            </select>
+                        </div>
+                        <button id="startWrongPracticeBtn" class="action-btn primary">开始错题练习</button>
+                    </div>
+                </div>
+            </section>
+
             <!-- 历史分数页面 -->
             <section id="historySection" class="tab-content">
                 <div class="card">
@@ -106,6 +160,45 @@
                     
                     <div id="historyList" class="history-list">
                         <p style="color: #6c757d; text-align: center;">暂无历史记录</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 历史记录详情页面 -->
+            <section id="historyDetailSection" class="tab-content" style="display: none;">
+                <div class="card">
+                    <div class="history-detail-header">
+                        <button id="backToHistoryBtn" class="action-btn">返回历史记录</button>
+                        <h2>历史答题详情</h2>
+                    </div>
+                    
+                    <div id="historyDetailInfo" class="history-detail-info">
+                        <!-- 历史记录基本信息将在这里显示 -->
+                    </div>
+                    
+                    <div id="historyDetailStats" class="history-detail-stats">
+                        <!-- 统计信息将在这里显示 -->
+                    </div>
+                    
+                    <div class="history-detail-controls">
+                        <div class="filter-controls">
+                            <label>
+                                <input type="checkbox" id="showCorrectOnly" onchange="filterHistoryDetails()">
+                                只显示错题
+                            </label>
+                            <select id="questionTypeFilterDetail" onchange="filterHistoryDetails()">
+                                <option value="all">所有题型</option>
+                                <option value="单选题">单选题</option>
+                                <option value="多选题">多选题</option>
+                                <option value="判断题">判断题</option>
+                                <option value="简答题">简答题</option>
+                                <option value="填空题">填空题</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="historyDetailList" class="history-detail-list">
+                        <!-- 答题详情列表将在这里显示 -->
                     </div>
                 </div>
             </section>

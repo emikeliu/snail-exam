@@ -15,9 +15,11 @@ const elements = {
     // 标签页
     convertTab: document.getElementById('convertTab'),
     practiceTab: document.getElementById('practiceTab'),
+    wrongQuestionsTab: document.getElementById('wrongQuestionsTab'),
     historyTab: document.getElementById('historyTab'),
     convertSection: document.getElementById('convertSection'),
     practiceSection: document.getElementById('practiceSection'),
+    wrongQuestionsSection: document.getElementById('wrongQuestionsSection'),
     historySection: document.getElementById('historySection'),
     quizSection: document.getElementById('quizSection'),
     resultSection: document.getElementById('resultSection'),
@@ -38,6 +40,8 @@ const elements = {
     // 练习设置
     shuffleQuestions: document.getElementById('shuffleQuestions'),
     shuffleOptions: document.getElementById('shuffleOptions'),
+    enableRandomCount: document.getElementById('enableRandomCount'),
+    randomQuestionCount: document.getElementById('randomQuestionCount'),
     difficultyFilter: document.getElementById('difficultyFilter'),
     questionTypeFilter: document.getElementById('questionTypeFilter'),
     startPracticeBtn: document.getElementById('startPracticeBtn'),
@@ -70,13 +74,34 @@ const elements = {
     // 历史分数
     clearAllHistoryBtn: document.getElementById('clearAllHistoryBtn'),
     totalHistoryCount: document.getElementById('totalHistoryCount'),
-    historyList: document.getElementById('historyList')
+    historyList: document.getElementById('historyList'),
+    
+    // 错题练习
+    totalWrongQuestionsCount: document.getElementById('totalWrongQuestionsCount'),
+    clearAllWrongQuestionsBtn: document.getElementById('clearAllWrongQuestionsBtn'),
+    wrongQuestionsList: document.getElementById('wrongQuestionsList'),
+    wrongPracticeControls: document.querySelector('.wrong-practice-controls'),
+    shuffleWrongQuestions: document.getElementById('shuffleWrongQuestions'),
+    shuffleWrongOptions: document.getElementById('shuffleWrongOptions'),
+    wrongDifficultyFilter: document.getElementById('wrongDifficultyFilter'),
+    wrongQuestionTypeFilter: document.getElementById('wrongQuestionTypeFilter'),
+    startWrongPracticeBtn: document.getElementById('startWrongPracticeBtn'),
+    
+    // 历史记录详情
+    historyDetailSection: document.getElementById('historyDetailSection'),
+    backToHistoryBtn: document.getElementById('backToHistoryBtn'),
+    historyDetailInfo: document.getElementById('historyDetailInfo'),
+    historyDetailStats: document.getElementById('historyDetailStats'),
+    showCorrectOnly: document.getElementById('showCorrectOnly'),
+    questionTypeFilterDetail: document.getElementById('questionTypeFilterDetail'),
+    historyDetailList: document.getElementById('historyDetailList')
 };
 
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
     loadLibraryFromStorage();
+    loadWrongQuestionsFromStorage(); // 加载错题数据
     loadHistoryFromStorage();
 });
 
@@ -85,6 +110,7 @@ function initializeEventListeners() {
     // 标签页切换
     elements.convertTab.addEventListener('click', () => switchTab('convert'));
     elements.practiceTab.addEventListener('click', () => switchTab('practice'));
+    elements.wrongQuestionsTab.addEventListener('click', () => switchTab('wrongQuestions'));
     elements.historyTab.addEventListener('click', () => switchTab('history'));
     
     // Excel文件选择
@@ -98,6 +124,17 @@ function initializeEventListeners() {
     // 练习控制
     elements.startPracticeBtn.addEventListener('click', startPractice);
     
+    // 随机抽取功能
+    elements.enableRandomCount.addEventListener('change', function() {
+        if (this.checked) {
+            elements.randomQuestionCount.focus();
+        }
+    });
+    
+    // 错题练习控制
+    elements.startWrongPracticeBtn.addEventListener('click', startWrongPractice);
+    elements.clearAllWrongQuestionsBtn.addEventListener('click', clearAllWrongQuestions);
+    
     // 测验导航
     elements.prevBtn.addEventListener('click', previousQuestion);
     elements.nextBtn.addEventListener('click', nextQuestion);
@@ -110,6 +147,9 @@ function initializeEventListeners() {
     
     // 历史分数
     elements.clearAllHistoryBtn.addEventListener('click', clearAllHistory);
+    
+    // 历史记录详情
+    elements.backToHistoryBtn.addEventListener('click', backToHistory);
 }
 
 // 标签页切换
@@ -129,6 +169,11 @@ function switchTab(tab) {
         elements.practiceTab.classList.add('active');
         elements.practiceSection.classList.add('active');
         elements.practiceSection.style.display = 'block';
+    } else if (tab === 'wrongQuestions') {
+        elements.wrongQuestionsTab.classList.add('active');
+        elements.wrongQuestionsSection.classList.add('active');
+        elements.wrongQuestionsSection.style.display = 'block';
+        loadWrongQuestionsFromStorage(); // 每次切换到错题页面时重新加载
     } else if (tab === 'history') {
         elements.historyTab.classList.add('active');
         elements.historySection.classList.add('active');
@@ -450,6 +495,26 @@ function startPractice() {
         return;
     }
     
+    // 检查是否启用随机抽取功能
+    if (elements.enableRandomCount.checked) {
+        const randomCount = parseInt(elements.randomQuestionCount.value);
+        
+        // 验证输入的题目数量
+        if (isNaN(randomCount) || randomCount < 1) {
+            showMessage('请输入有效的题目数量（大于0的整数）', 'warning');
+            return;
+        }
+        
+        if (randomCount > allQuestions.length) {
+            showMessage(`输入的题目数量(${randomCount})大于符合条件的题目总数(${allQuestions.length})`, 'warning');
+            return;
+        }
+        
+        // 随机抽取指定数量的题目
+        allQuestions = getRandomQuestions(allQuestions, randomCount);
+        showMessage(`已随机抽取${randomCount}道题目`, 'success');
+    }
+    
     // 随机打乱题目顺序
     if (elements.shuffleQuestions.checked) {
         allQuestions = shuffleArray(allQuestions);
@@ -471,6 +536,14 @@ function startPractice() {
     
     // 开始计时
     startTimer();
+}
+
+// 随机抽取指定数量的题目
+function getRandomQuestions(questions, count) {
+    // 先打乱题目顺序
+    const shuffled = shuffleArray([...questions]);
+    // 返回前count道题
+    return shuffled.slice(0, count);
 }
 
 // 切换到测验界面
@@ -557,7 +630,11 @@ function displayOptions(question) {
         let displayOptions = options;
         
         // 随机打乱选项顺序（仅在首次显示时）
-        if (elements.shuffleOptions.checked) {
+        const shouldShuffleOptions = window.isWrongQuestionPractice ?
+            elements.shuffleWrongOptions.checked :
+            elements.shuffleOptions.checked;
+            
+        if (shouldShuffleOptions) {
             displayOptions = shuffleArray(options);
         }
         
@@ -887,6 +964,12 @@ function displayResults(results) {
     
     // 自动保存分数到历史记录
     autoSaveScoreToHistory(results);
+    
+    // 收集错题到错题本
+    collectWrongQuestions(results);
+    
+    // 处理错题练习结果（如果是错题练习模式）
+    handleWrongQuestionResults(results);
 }
 
 // 切换到结果页面
@@ -1017,12 +1100,19 @@ function displayDetailedResults() {
 // 重新练习
 function restartPractice() {
     if (confirm('确定要重新练习吗？')) {
-        startPractice();
+        if (window.isWrongQuestionPractice) {
+            startWrongPractice();
+        } else {
+            startPractice();
+        }
     }
 }
 
 // 返回题库
 function backToLibrary() {
+    // 先保存当前模式，然后重置状态
+    const wasWrongQuestionPractice = window.isWrongQuestionPractice;
+    
     // 重置状态
     currentQuestions = [];
     currentQuestionIndex = 0;
@@ -1035,11 +1125,19 @@ function backToLibrary() {
     // 停止计时器
     stopTimer();
     
-    // 使用switchTab函数确保标签页状态正确
-    switchTab('practice');
+    // 重置错题练习模式标志
+    window.isWrongQuestionPractice = false;
     
-    // 重新加载题库列表
-    loadLibraryFromStorage();
+    // 根据当前练习模式返回相应页面
+    const targetTab = wasWrongQuestionPractice ? 'wrongQuestions' : 'practice';
+    switchTab(targetTab);
+    
+    // 重新加载相应列表
+    if (targetTab === 'wrongQuestions') {
+        loadWrongQuestionsFromStorage();
+    } else {
+        loadLibraryFromStorage();
+    }
 }
 
 // 计时器功能
@@ -1145,14 +1243,23 @@ function autoSaveScoreToHistory(results) {
         return;
     }
     
-    // 获取选中的题库名称
-    const libraries = JSON.parse(localStorage.getItem('questionLibraries') || '[]');
-    const selectedLibraries = libraries.filter(lib => selectedLibraryIds.has(lib.id));
-    const libraryNames = selectedLibraries.map(lib => lib.name);
+    let libraryNames;
+    let difficulty;
+    let questionType;
     
-    // 获取筛选条件
-    const difficultyFilter = elements.difficultyFilter.value;
-    const questionTypeFilter = elements.questionTypeFilter.value;
+    if (window.isWrongQuestionPractice) {
+        // 错题练习模式
+        libraryNames = ['错题练习'];
+        difficulty = elements.wrongDifficultyFilter.value === 'all' ? '所有难度' : elements.wrongDifficultyFilter.value;
+        questionType = elements.wrongQuestionTypeFilter.value === 'all' ? '所有题型' : elements.wrongQuestionTypeFilter.value;
+    } else {
+        // 普通练习模式
+        const libraries = JSON.parse(localStorage.getItem('questionLibraries') || '[]');
+        const selectedLibraries = libraries.filter(lib => selectedLibraryIds.has(lib.id));
+        libraryNames = selectedLibraries.map(lib => lib.name);
+        difficulty = elements.difficultyFilter.value === 'all' ? '所有难度' : elements.difficultyFilter.value;
+        questionType = elements.questionTypeFilter.value === 'all' ? '所有题型' : elements.questionTypeFilter.value;
+    }
     
     // 创建历史记录对象
     const historyRecord = {
@@ -1163,8 +1270,10 @@ function autoSaveScoreToHistory(results) {
         correctRate: results.correctRate,
         totalTime: results.totalTime,
         libraryNames: libraryNames,
-        difficulty: difficultyFilter === 'all' ? '所有难度' : difficultyFilter,
-        questionType: questionTypeFilter === 'all' ? '所有题型' : questionTypeFilter
+        difficulty: difficulty,
+        questionType: questionType,
+        detailedResults: results.detailedResults, // 保存详细的答题情况
+        isWrongQuestionPractice: window.isWrongQuestionPractice || false // 标记是否为错题练习
     };
     
     // 保存到本地存储
@@ -1210,7 +1319,10 @@ function displayHistoryList(history) {
             <div class="history-item" data-id="${record.id}">
                 <div class="history-header">
                     <div class="history-date">${dateStr}</div>
-                    <button onclick="deleteHistoryRecord(${record.id})" class="delete-btn">删除</button>
+                    <div class="history-actions">
+                        <button onclick="viewHistoryDetail(${record.id})" class="view-btn">查看详情</button>
+                        <button onclick="deleteHistoryRecord(${record.id})" class="delete-btn">删除</button>
+                    </div>
                 </div>
                 <div class="history-content">
                     <div class="history-score">
@@ -1253,5 +1365,548 @@ function clearAllHistory() {
         localStorage.removeItem('scoreHistory');
         loadHistoryFromStorage();
         showMessage('所有历史记录已清空', 'success');
+    }
+}
+
+// 查看历史记录详情
+function viewHistoryDetail(recordId) {
+    const history = JSON.parse(localStorage.getItem('scoreHistory') || '[]');
+    const record = history.find(r => r.id === recordId);
+    
+    if (!record) {
+        showMessage('未找到该历史记录', 'error');
+        return;
+    }
+    
+    // 保存当前记录到全局变量
+    window.currentHistoryRecord = record;
+    
+    // 切换到历史记录详情页面
+    switchToHistoryDetail();
+    
+    // 显示历史记录详情
+    displayHistoryDetail(record);
+}
+
+// 切换到历史记录详情页面
+function switchToHistoryDetail() {
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+        content.style.display = 'none';
+    });
+    elements.historyDetailSection.style.display = 'block';
+    elements.historyDetailSection.classList.add('active');
+}
+
+// 返回历史记录列表
+function backToHistory() {
+    switchTab('history');
+}
+
+// 显示历史记录详情
+function displayHistoryDetail(record) {
+    // 显示基本信息
+    const date = new Date(record.date);
+    const dateStr = date.toLocaleString('zh-CN');
+    const timeStr = formatTime(record.totalTime);
+    
+    elements.historyDetailInfo.innerHTML = `
+        <div class="info-row">
+            <span class="info-label">练习时间:</span>
+            <span class="info-value">${dateStr}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">题库来源:</span>
+            <span class="info-value">${record.libraryNames.join(', ')}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">难度筛选:</span>
+            <span class="info-value">${record.difficulty}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">题型筛选:</span>
+            <span class="info-value">${record.questionType}</span>
+        </div>
+    `;
+    
+    // 显示统计信息
+    elements.historyDetailStats.innerHTML = `
+        <div class="stat-item">
+            <span class="stat-label">总题数</span>
+            <span class="stat-value">${record.totalQuestions}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">正确数</span>
+            <span class="stat-value">${record.correctCount}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">正确率</span>
+            <span class="stat-value">${record.correctRate}%</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">用时</span>
+            <span class="stat-value">${timeStr}</span>
+        </div>
+    `;
+    
+    // 显示答题详情
+    displayHistoryDetailList(record.detailedResults || []);
+}
+
+// 显示历史记录答题详情列表
+function displayHistoryDetailList(detailedResults) {
+    if (!detailedResults || detailedResults.length === 0) {
+        elements.historyDetailList.innerHTML = '<p style="color: #6c757d; text-align: center;">暂无答题详情</p>';
+        return;
+    }
+    
+    // 应用筛选条件
+    let filteredResults = [...detailedResults];
+    
+    // 只显示错题筛选
+    if (elements.showCorrectOnly.checked) {
+        filteredResults = filteredResults.filter(result => !result.isCorrect);
+    }
+    
+    // 题型筛选
+    const questionTypeFilter = elements.questionTypeFilterDetail.value;
+    if (questionTypeFilter !== 'all') {
+        filteredResults = filteredResults.filter(result => result.question.type === questionTypeFilter);
+    }
+    
+    if (filteredResults.length === 0) {
+        elements.historyDetailList.innerHTML = '<p style="color: #6c757d; text-align: center;">没有符合筛选条件的题目</p>';
+        return;
+    }
+    
+    elements.historyDetailList.innerHTML = filteredResults.map((result, index) => {
+        const originalIndex = detailedResults.indexOf(result);
+        const statusClass = result.isCorrect ? 'correct' : 'incorrect';
+        const statusText = result.isCorrect ? '✓ 正确' : '✗ 错误';
+        
+        const userAnswerText = result.userAnswer ?
+            (Array.isArray(result.userAnswer) ? result.userAnswer.join(', ') : result.userAnswer) :
+            '未作答';
+        
+        // 获取选项内容而不是选项键
+        const getOptionText = (optionKey) => {
+            if (optionKey && result.question.options && result.question.options[optionKey]) {
+                return result.question.options[optionKey];
+            }
+            return optionKey;
+        };
+        
+        // 处理多选题答案
+        const formatAnswer = (answer) => {
+            if (!answer) return '未作答';
+            
+            if (Array.isArray(answer)) {
+                return answer.map(key => getOptionText(key)).join(', ');
+            } else {
+                return getOptionText(answer);
+            }
+        };
+        
+        // 处理正确答案（可能是连续字母组合或逗号分隔的字符串）
+        const formatCorrectAnswer = (answer) => {
+            if (!answer) return '无正确答案';
+            
+            // 检查是否为连续字母组合（如"ABC"）
+            if (answer.includes(',') || answer.length > 1 && /^[A-E]+$/.test(answer)) {
+                // 处理连续字母组合
+                const letters = answer.includes(',') ?
+                    answer.split(',').map(key => key.trim()) :
+                    answer.split('');
+                return letters.map(key => getOptionText(key)).join(', ');
+            } else {
+                return getOptionText(answer);
+            }
+        };
+        
+        // 简答题和填空题特殊处理
+        if (result.question.type === '简答题' || result.question.type === '填空题') {
+            const userAnswer = result.userAnswer || '未作答';
+            const correctAnswer = result.correctAnswer || '无标准答案';
+            const selfScore = result.selfScore;
+            const scoreText = selfScore === 1 ? '自评: 正确' : (selfScore === 0 ? '自评: 错误' : '未评分');
+            const scoreClass = selfScore === 1 ? 'correct' : (selfScore === 0 ? 'incorrect' : 'ungraded');
+            
+            return `
+                <div class="history-detail-item short-answer-review-item ${scoreClass}">
+                    <div class="detail-question-number">第 ${originalIndex + 1} 题</div>
+                    <div class="detail-question-type">${result.question.type}</div>
+                    <div class="detail-question-text">${result.question.description}</div>
+                    <div class="detail-answer-section">
+                        <div class="detail-answer-row">
+                            <span class="answer-label">你的答案:</span>
+                            <span class="answer-text">${userAnswer}</span>
+                        </div>
+                        <div class="detail-answer-row">
+                            <span class="answer-label">参考答案:</span>
+                            <span class="answer-text">${correctAnswer}</span>
+                        </div>
+                        <div class="detail-answer-row">
+                            <span class="answer-label">评分结果:</span>
+                            <span class="answer-text ${scoreClass}">${scoreText}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 判断题特殊处理
+        if (result.question.type === '判断题') {
+            const userAnswer = result.userAnswer || '未作答';
+            const correctAnswer = result.correctAnswer || '无标准答案';
+            
+            return `
+                <div class="history-detail-item ${statusClass}">
+                    <div class="detail-question-number">第 ${originalIndex + 1} 题</div>
+                    <div class="detail-question-type">${result.question.type}</div>
+                    <div class="detail-question-text">${result.question.description}</div>
+                    <div class="detail-answer-section">
+                        <div class="detail-answer-row">
+                            <span class="answer-label">你的答案:</span>
+                            <span class="answer-text">${userAnswer}</span>
+                        </div>
+                        <div class="detail-answer-row">
+                            <span class="answer-label">正确答案:</span>
+                            <span class="answer-text">${correctAnswer}</span>
+                        </div>
+                        <div class="detail-answer-row">
+                            <span class="answer-label">答题结果:</span>
+                            <span class="answer-text ${statusClass}">${statusText}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="history-detail-item ${statusClass}">
+                <div class="detail-question-number">第 ${originalIndex + 1} 题</div>
+                <div class="detail-question-type">${result.question.type}</div>
+                <div class="detail-question-text">${result.question.description}</div>
+                <div class="detail-answer-section">
+                    <div class="detail-answer-row">
+                        <span class="answer-label">你的答案:</span>
+                        <span class="answer-text">${formatAnswer(result.userAnswer)}</span>
+                    </div>
+                    <div class="detail-answer-row">
+                        <span class="answer-label">正确答案:</span>
+                        <span class="answer-text">${formatCorrectAnswer(result.correctAnswer)}</span>
+                    </div>
+                    <div class="detail-answer-row">
+                        <span class="answer-label">答题结果:</span>
+                        <span class="answer-text ${statusClass}">${statusText}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 筛选历史记录详情
+function filterHistoryDetails() {
+    if (window.currentHistoryRecord) {
+        displayHistoryDetailList(window.currentHistoryRecord.detailedResults || []);
+    }
+}
+
+// 错题相关函数
+
+// 收集错题到错题本
+function collectWrongQuestions(results) {
+    if (!results || !results.detailedResults) return;
+    
+    const wrongQuestions = results.detailedResults.filter(result => !result.isCorrect);
+    
+    if (wrongQuestions.length === 0) return;
+    
+    // 获取现有错题
+    let wrongQuestionsCollection = JSON.parse(localStorage.getItem('wrongQuestionsCollection') || '[]');
+    
+    // 为每个错题添加唯一ID和时间戳
+    wrongQuestions.forEach(wrongQuestion => {
+        const questionWithMeta = {
+            ...wrongQuestion,
+            id: generateUniqueId(),
+            collectedAt: new Date().toISOString(),
+            originalQuizDate: new Date().toISOString(),
+            libraryNames: results.libraryNames || ['未知题库']
+        };
+        
+        // 检查是否已存在相同的错题（基于题目内容和正确答案）
+        const isDuplicate = wrongQuestionsCollection.some(existing =>
+            existing.question.description === wrongQuestion.question.description &&
+            existing.question.correctAnswer === wrongQuestion.question.correctAnswer
+        );
+        
+        if (!isDuplicate) {
+            wrongQuestionsCollection.push(questionWithMeta);
+        }
+    });
+    
+    // 保存到本地存储
+    localStorage.setItem('wrongQuestionsCollection', JSON.stringify(wrongQuestionsCollection));
+    
+    showMessage(`已收集 ${wrongQuestions.length} 道错题到错题本`, 'success');
+}
+
+// 生成唯一ID
+function generateUniqueId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// 从本地存储加载错题
+function loadWrongQuestionsFromStorage() {
+    const wrongQuestions = JSON.parse(localStorage.getItem('wrongQuestionsCollection') || '[]');
+    displayWrongQuestionsList(wrongQuestions);
+}
+
+// 显示错题列表
+function displayWrongQuestionsList(wrongQuestions) {
+    elements.totalWrongQuestionsCount.textContent = wrongQuestions.length;
+    
+    if (wrongQuestions.length === 0) {
+        elements.wrongQuestionsList.innerHTML = '<p style="color: #6c757d; text-align: center;">暂无错题，请先完成练习</p>';
+        elements.wrongPracticeControls.style.display = 'none';
+        return;
+    }
+    
+    elements.wrongPracticeControls.style.display = 'block';
+    
+    elements.wrongQuestionsList.innerHTML = wrongQuestions.map((wrongQuestion, index) => {
+        const question = wrongQuestion.question;
+        const collectedDate = new Date(wrongQuestion.collectedAt).toLocaleString('zh-CN');
+        const libraryNames = wrongQuestion.libraryNames.join(', ');
+        
+        return `
+            <div class="wrong-question-item" data-id="${wrongQuestion.id}">
+                <div class="wrong-question-header">
+                    <div class="wrong-question-number">错题 ${index + 1}</div>
+                    <div class="wrong-question-actions">
+                        <button onclick="viewWrongQuestionDetail('${wrongQuestion.id}')" class="view-btn">查看详情</button>
+                        <button onclick="removeWrongQuestion('${wrongQuestion.id}')" class="delete-btn">移除</button>
+                    </div>
+                </div>
+                <div class="wrong-question-content">
+                    <div class="wrong-question-meta">
+                        <span class="type-tag">${question.type}</span>
+                        <span class="difficulty-tag">${question.difficulty}</span>
+                        <span class="library-tag">${libraryNames}</span>
+                    </div>
+                    <div class="wrong-question-text">${question.description}</div>
+                    <div class="wrong-question-answer">
+                        <span class="answer-label">你的答案:</span>
+                        <span class="answer-text incorrect">${formatWrongAnswer(wrongQuestion.userAnswer, question)}</span>
+                    </div>
+                    <div class="wrong-question-answer">
+                        <span class="answer-label">正确答案:</span>
+                        <span class="answer-text correct">${formatCorrectAnswer(wrongQuestion.correctAnswer, question)}</span>
+                    </div>
+                    <div class="wrong-question-date">收集时间: ${collectedDate}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 格式化错题答案
+function formatWrongAnswer(userAnswer, question) {
+    if (!userAnswer) return '未作答';
+    
+    if (Array.isArray(userAnswer)) {
+        return userAnswer.map(key => question.options[key]).join(', ');
+    } else {
+        return question.options[userAnswer] || userAnswer;
+    }
+}
+
+// 格式化正确答案
+function formatCorrectAnswer(correctAnswer, question) {
+    if (!correctAnswer) return '无标准答案';
+    
+    // 处理多选题答案
+    if (correctAnswer.includes(',') || (correctAnswer.length > 1 && /^[A-E]+$/.test(correctAnswer))) {
+        const letters = correctAnswer.includes(',') ?
+            correctAnswer.split(',').map(key => key.trim()) :
+            correctAnswer.split('');
+        return letters.map(key => question.options[key]).join(', ');
+    } else {
+        return question.options[correctAnswer] || correctAnswer;
+    }
+}
+
+// 查看错题详情
+function viewWrongQuestionDetail(wrongQuestionId) {
+    const wrongQuestions = JSON.parse(localStorage.getItem('wrongQuestionsCollection') || '[]');
+    const wrongQuestion = wrongQuestions.find(wq => wq.id === wrongQuestionId);
+    
+    if (!wrongQuestion) {
+        showMessage('未找到该错题', 'error');
+        return;
+    }
+    
+    const question = wrongQuestion.question;
+    const userAnswer = wrongQuestion.userAnswer;
+    const correctAnswer = wrongQuestion.correctAnswer;
+    const collectedDate = new Date(wrongQuestion.collectedAt).toLocaleString('zh-CN');
+    const libraryNames = wrongQuestion.libraryNames.join(', ');
+    
+    const detailContent = `
+        <div class="wrong-question-detail-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>错题详情</h3>
+                    <button onclick="closeWrongQuestionDetail()" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="wrong-question-meta">
+                        <span class="type-tag">${question.type}</span>
+                        <span class="difficulty-tag">${question.difficulty}</span>
+                        <span class="library-tag">${libraryNames}</span>
+                    </div>
+                    <div class="wrong-question-text">${question.description}</div>
+                    <div class="wrong-question-answer">
+                        <span class="answer-label">你的答案:</span>
+                        <span class="answer-text incorrect">${formatWrongAnswer(userAnswer, question)}</span>
+                    </div>
+                    <div class="wrong-question-answer">
+                        <span class="answer-label">正确答案:</span>
+                        <span class="answer-text correct">${formatCorrectAnswer(correctAnswer, question)}</span>
+                    </div>
+                    <div class="wrong-question-date">收集时间: ${collectedDate}</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 创建模态框
+    const modal = document.createElement('div');
+    modal.innerHTML = detailContent;
+    document.body.appendChild(modal);
+    
+    // 添加背景遮罩
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.zIndex = '1000';
+}
+
+// 关闭错题详情
+function closeWrongQuestionDetail() {
+    const modal = document.querySelector('.wrong-question-detail-modal');
+    if (modal) {
+        document.body.removeChild(modal);
+    }
+}
+
+// 移除错题
+function removeWrongQuestion(wrongQuestionId) {
+    if (confirm('确定要移除这道错题吗？')) {
+        let wrongQuestions = JSON.parse(localStorage.getItem('wrongQuestionsCollection') || '[]');
+        wrongQuestions = wrongQuestions.filter(wq => wq.id !== wrongQuestionId);
+        localStorage.setItem('wrongQuestionsCollection', JSON.stringify(wrongQuestions));
+        
+        loadWrongQuestionsFromStorage();
+        showMessage('错题已移除', 'success');
+    }
+}
+
+// 清空所有错题
+function clearAllWrongQuestions() {
+    if (confirm('确定要清空所有错题吗？此操作不可恢复！')) {
+        localStorage.removeItem('wrongQuestionsCollection');
+        loadWrongQuestionsFromStorage();
+        showMessage('所有错题已清空', 'success');
+    }
+}
+
+// 开始错题练习
+function startWrongPractice() {
+    const wrongQuestions = JSON.parse(localStorage.getItem('wrongQuestionsCollection') || '[]');
+    
+    if (wrongQuestions.length === 0) {
+        showMessage('没有可练习的错题', 'warning');
+        return;
+    }
+    
+    // 应用筛选条件
+    let practiceQuestions = wrongQuestions.map(wq => wq.question);
+    
+    const difficultyFilter = elements.wrongDifficultyFilter.value;
+    const typeFilter = elements.wrongQuestionTypeFilter.value;
+    
+    if (difficultyFilter !== 'all') {
+        practiceQuestions = practiceQuestions.filter(q => q.difficulty === difficultyFilter);
+    }
+    
+    if (typeFilter !== 'all') {
+        practiceQuestions = practiceQuestions.filter(q => q.type === typeFilter);
+    }
+    
+    if (practiceQuestions.length === 0) {
+        showMessage('没有符合条件的错题', 'warning');
+        return;
+    }
+    
+    // 随机打乱题目顺序
+    if (elements.shuffleWrongQuestions.checked) {
+        practiceQuestions = shuffleArray(practiceQuestions);
+    }
+    
+    // 设置当前练习为错题练习模式
+    window.isWrongQuestionPractice = true;
+    
+    currentQuestions = practiceQuestions;
+    currentQuestionIndex = 0;
+    userAnswers = new Array(currentQuestions.length).fill(null);
+    userScores = new Array(currentQuestions.length).fill(null);
+    questionsShuffledOptions.clear();
+    shortAnswerAnswerShown.clear();
+    startTime = Date.now();
+    
+    // 切换到测验界面
+    switchToQuiz();
+    
+    // 显示第一题
+    displayQuestion();
+    
+    // 开始计时
+    startTimer();
+    
+    showMessage(`开始错题练习，共 ${practiceQuestions.length} 道题目`, 'success');
+}
+
+// 错题练习结果处理
+function handleWrongQuestionResults(results) {
+    if (!window.isWrongQuestionPractice) return;
+    
+    const correctResults = results.detailedResults.filter(result => result.isCorrect);
+    
+    if (correctResults.length > 0) {
+        const confirmRemove = confirm(`您在错题练习中答对了 ${correctResults.length} 道题目，是否将这些题目从错题本中移除？`);
+        
+        if (confirmRemove) {
+            let wrongQuestions = JSON.parse(localStorage.getItem('wrongQuestionsCollection') || '[]');
+            
+            correctResults.forEach(correctResult => {
+                const question = correctResult.question;
+                wrongQuestions = wrongQuestions.filter(wq =>
+                    !(wq.question.description === question.description &&
+                      wq.question.correctAnswer === question.correctAnswer)
+                );
+            });
+            
+            localStorage.setItem('wrongQuestionsCollection', JSON.stringify(wrongQuestions));
+            showMessage(`已移除 ${correctResults.length} 道已答对的错题`, 'success');
+        }
     }
 }
