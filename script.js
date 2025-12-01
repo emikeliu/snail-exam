@@ -16,10 +16,12 @@ const elements = {
     convertTab: document.getElementById('convertTab'),
     practiceTab: document.getElementById('practiceTab'),
     wrongQuestionsTab: document.getElementById('wrongQuestionsTab'),
+    savedPracticeTab: document.getElementById('savedPracticeTab'),
     historyTab: document.getElementById('historyTab'),
     convertSection: document.getElementById('convertSection'),
     practiceSection: document.getElementById('practiceSection'),
     wrongQuestionsSection: document.getElementById('wrongQuestionsSection'),
+    savedPracticeSection: document.getElementById('savedPracticeSection'),
     historySection: document.getElementById('historySection'),
     quizSection: document.getElementById('quizSection'),
     resultSection: document.getElementById('resultSection'),
@@ -56,6 +58,7 @@ const elements = {
     optionsContainer: document.getElementById('optionsContainer'),
     prevBtn: document.getElementById('prevBtn'),
     nextBtn: document.getElementById('nextBtn'),
+    saveProgressBtn: document.getElementById('saveProgressBtn'),
     submitBtn: document.getElementById('submitBtn'),
     explanation: document.getElementById('explanation'),
     explanationText: document.getElementById('explanationText'),
@@ -87,6 +90,11 @@ const elements = {
     wrongQuestionTypeFilter: document.getElementById('wrongQuestionTypeFilter'),
     startWrongPracticeBtn: document.getElementById('startWrongPracticeBtn'),
     
+    // 暂存练习
+    totalSavedPracticeCount: document.getElementById('totalSavedPracticeCount'),
+    clearAllSavedPracticeBtn: document.getElementById('clearAllSavedPracticeBtn'),
+    savedPracticeList: document.getElementById('savedPracticeList'),
+    
     // 历史记录详情
     historyDetailSection: document.getElementById('historyDetailSection'),
     backToHistoryBtn: document.getElementById('backToHistoryBtn'),
@@ -102,6 +110,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
     loadLibraryFromStorage();
     loadWrongQuestionsFromStorage(); // 加载错题数据
+    loadSavedPracticeFromStorage(); // 加载暂存练习数据
     loadHistoryFromStorage();
 });
 
@@ -111,6 +120,7 @@ function initializeEventListeners() {
     elements.convertTab.addEventListener('click', () => switchTab('convert'));
     elements.practiceTab.addEventListener('click', () => switchTab('practice'));
     elements.wrongQuestionsTab.addEventListener('click', () => switchTab('wrongQuestions'));
+    elements.savedPracticeTab.addEventListener('click', () => switchTab('savedPractice'));
     elements.historyTab.addEventListener('click', () => switchTab('history'));
     
     // Excel文件选择
@@ -138,6 +148,7 @@ function initializeEventListeners() {
     // 测验导航
     elements.prevBtn.addEventListener('click', previousQuestion);
     elements.nextBtn.addEventListener('click', nextQuestion);
+    elements.saveProgressBtn.addEventListener('click', savePracticeProgress);
     elements.submitBtn.addEventListener('click', submitQuiz);
     
     // 结果页面
@@ -147,6 +158,9 @@ function initializeEventListeners() {
     
     // 历史分数
     elements.clearAllHistoryBtn.addEventListener('click', clearAllHistory);
+    
+    // 暂存练习
+    elements.clearAllSavedPracticeBtn.addEventListener('click', clearAllSavedPractice);
     
     // 历史记录详情
     elements.backToHistoryBtn.addEventListener('click', backToHistory);
@@ -174,6 +188,11 @@ function switchTab(tab) {
         elements.wrongQuestionsSection.classList.add('active');
         elements.wrongQuestionsSection.style.display = 'block';
         loadWrongQuestionsFromStorage(); // 每次切换到错题页面时重新加载
+    } else if (tab === 'savedPractice') {
+        elements.savedPracticeTab.classList.add('active');
+        elements.savedPracticeSection.classList.add('active');
+        elements.savedPracticeSection.style.display = 'block';
+        loadSavedPracticeFromStorage(); // 每次切换到暂存页面时重新加载
     } else if (tab === 'history') {
         elements.historyTab.classList.add('active');
         elements.historySection.classList.add('active');
@@ -1908,5 +1927,215 @@ function handleWrongQuestionResults(results) {
             localStorage.setItem('wrongQuestionsCollection', JSON.stringify(wrongQuestions));
             showMessage(`已移除 ${correctResults.length} 道已答对的错题`, 'success');
         }
+    }
+}
+
+// 暂存练习相关函数
+
+// 保存练习进度
+function savePracticeProgress() {
+    if (!currentQuestions || currentQuestions.length === 0) {
+        showMessage('没有可保存的练习进度', 'warning');
+        return;
+    }
+    
+    // 保存当前简答题答案
+    const currentQuestion = currentQuestions[currentQuestionIndex];
+    if (currentQuestion && (currentQuestion.type === '简答题' || currentQuestion.type === '填空题')) {
+        saveShortAnswer();
+    }
+    
+    // 获取练习设置
+    let practiceSettings;
+    let libraryNames;
+    
+    if (window.isWrongQuestionPractice) {
+        // 错题练习模式
+        practiceSettings = {
+            shuffleQuestions: elements.shuffleWrongQuestions.checked,
+            shuffleOptions: elements.shuffleWrongOptions.checked,
+            difficultyFilter: elements.wrongDifficultyFilter.value,
+            questionTypeFilter: elements.wrongQuestionTypeFilter.value
+        };
+        libraryNames = ['错题练习'];
+    } else {
+        // 普通练习模式
+        practiceSettings = {
+            shuffleQuestions: elements.shuffleQuestions.checked,
+            shuffleOptions: elements.shuffleOptions.checked,
+            enableRandomCount: elements.enableRandomCount.checked,
+            randomQuestionCount: elements.randomQuestionCount.value,
+            difficultyFilter: elements.difficultyFilter.value,
+            questionTypeFilter: elements.questionTypeFilter.value
+        };
+        
+        const libraries = JSON.parse(localStorage.getItem('questionLibraries') || '[]');
+        const selectedLibraries = libraries.filter(lib => selectedLibraryIds.has(lib.id));
+        libraryNames = selectedLibraries.map(lib => lib.name);
+    }
+    
+    // 创建暂存记录对象
+    const savedPractice = {
+        id: Date.now(),
+        saveTime: new Date().toISOString(),
+        title: generatePracticeTitle(libraryNames),
+        libraryNames: libraryNames,
+        practiceSettings: practiceSettings,
+        isWrongQuestionPractice: window.isWrongQuestionPractice || false,
+        currentQuestions: currentQuestions,
+        currentQuestionIndex: currentQuestionIndex,
+        userAnswers: [...userAnswers],
+        userScores: [...userScores],
+        questionsShuffledOptions: Array.from(questionsShuffledOptions.entries()),
+        shortAnswerAnswerShown: Array.from(shortAnswerAnswerShown.entries()),
+        startTime: startTime,
+        elapsedTime: Math.floor((Date.now() - startTime) / 1000)
+    };
+    
+    // 保存到本地存储
+    let savedPractices = JSON.parse(localStorage.getItem('savedPractices') || '[]');
+    savedPractices.unshift(savedPractice); // 新记录添加到开头
+    
+    // 限制暂存记录数量（最多保存20条）
+    if (savedPractices.length > 20) {
+        savedPractices = savedPractices.slice(0, 20);
+    }
+    
+    localStorage.setItem('savedPractices', JSON.stringify(savedPractices));
+    
+    showMessage('练习进度已保存', 'success');
+}
+
+// 生成练习标题
+function generatePracticeTitle(libraryNames) {
+    const date = new Date();
+    const dateStr = date.toLocaleDateString('zh-CN');
+    const timeStr = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    
+    if (libraryNames.length === 0) {
+        return `练习 ${dateStr} ${timeStr}`;
+    } else if (libraryNames.length === 1) {
+        return `${libraryNames[0]} ${dateStr} ${timeStr}`;
+    } else {
+        return `多题库练习 ${dateStr} ${timeStr}`;
+    }
+}
+
+// 从本地存储加载暂存练习
+function loadSavedPracticeFromStorage() {
+    const savedPractices = JSON.parse(localStorage.getItem('savedPractices') || '[]');
+    displaySavedPracticeList(savedPractices);
+}
+
+// 显示暂存练习列表
+function displaySavedPracticeList(savedPractices) {
+    elements.totalSavedPracticeCount.textContent = savedPractices.length;
+    
+    if (savedPractices.length === 0) {
+        elements.savedPracticeList.innerHTML = '<p style="color: #6c757d; text-align: center;">暂无暂存记录，请在练习中保存进度</p>';
+        return;
+    }
+    
+    elements.savedPracticeList.innerHTML = savedPractices.map(practice => {
+        const saveDate = new Date(practice.saveTime);
+        const dateStr = saveDate.toLocaleString('zh-CN');
+        const progress = Math.round(((practice.currentQuestionIndex + 1) / practice.currentQuestions.length) * 100);
+        const timeStr = formatTime(practice.elapsedTime);
+        
+        return `
+            <div class="saved-practice-item" data-id="${practice.id}">
+                <div class="saved-practice-header">
+                    <div class="saved-practice-title">${practice.title}</div>
+                    <div class="saved-practice-actions">
+                        <button onclick="resumeSavedPractice(${practice.id})" class="resume-btn">继续练习</button>
+                        <button onclick="deleteSavedPractice(${practice.id})" class="delete-btn">删除</button>
+                    </div>
+                </div>
+                <div class="saved-practice-content">
+                    <div class="saved-practice-meta">
+                        <span class="type-tag">${practice.isWrongQuestionPractice ? '错题练习' : '普通练习'}</span>
+                        <span class="progress-tag">进度: ${progress}%</span>
+                    </div>
+                    <div class="saved-practice-details">
+                        <span>题库: ${practice.libraryNames.join(', ')}</span>
+                        <span>题目: ${practice.currentQuestionIndex + 1} / ${practice.currentQuestions.length}</span>
+                        <span>用时: ${timeStr}</span>
+                    </div>
+                    <div class="saved-practice-date">保存时间: ${dateStr}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 恢复暂存的练习
+function resumeSavedPractice(practiceId) {
+    const savedPractices = JSON.parse(localStorage.getItem('savedPractices') || '[]');
+    const practice = savedPractices.find(p => p.id === practiceId);
+    
+    if (!practice) {
+        showMessage('未找到该暂存记录', 'error');
+        return;
+    }
+    
+    // 恢复练习状态
+    currentQuestions = practice.currentQuestions;
+    currentQuestionIndex = practice.currentQuestionIndex;
+    userAnswers = [...practice.userAnswers];
+    userScores = [...practice.userScores];
+    questionsShuffledOptions = new Map(practice.questionsShuffledOptions);
+    shortAnswerAnswerShown = new Map(practice.shortAnswerAnswerShown);
+    startTime = Date.now() - (practice.elapsedTime * 1000); // 调整开始时间以保持已用时间
+    
+    // 设置练习模式
+    window.isWrongQuestionPractice = practice.isWrongQuestionPractice;
+    
+    // 恢复练习设置（如果需要）
+    if (practice.practiceSettings) {
+        if (practice.isWrongQuestionPractice) {
+            elements.shuffleWrongQuestions.checked = practice.practiceSettings.shuffleQuestions;
+            elements.shuffleWrongOptions.checked = practice.practiceSettings.shuffleOptions;
+            elements.wrongDifficultyFilter.value = practice.practiceSettings.difficultyFilter;
+            elements.wrongQuestionTypeFilter.value = practice.practiceSettings.questionTypeFilter;
+        } else {
+            elements.shuffleQuestions.checked = practice.practiceSettings.shuffleQuestions;
+            elements.shuffleOptions.checked = practice.practiceSettings.shuffleOptions;
+            elements.enableRandomCount.checked = practice.practiceSettings.enableRandomCount;
+            elements.randomQuestionCount.value = practice.practiceSettings.randomQuestionCount;
+            elements.difficultyFilter.value = practice.practiceSettings.difficultyFilter;
+            elements.questionTypeFilter.value = practice.practiceSettings.questionTypeFilter;
+        }
+    }
+    
+    // 切换到测验界面
+    switchToQuiz();
+    
+    // 显示当前题目
+    displayQuestion();
+    
+    // 开始计时
+    startTimer();
+    
+    showMessage(`已恢复练习: ${practice.title}`, 'success');
+}
+
+// 删除暂存记录
+function deleteSavedPractice(practiceId) {
+    if (confirm('确定要删除这条暂存记录吗？')) {
+        let savedPractices = JSON.parse(localStorage.getItem('savedPractices') || '[]');
+        savedPractices = savedPractices.filter(practice => practice.id !== practiceId);
+        localStorage.setItem('savedPractices', JSON.stringify(savedPractices));
+        
+        loadSavedPracticeFromStorage();
+        showMessage('暂存记录已删除', 'success');
+    }
+}
+
+// 清空所有暂存记录
+function clearAllSavedPractice() {
+    if (confirm('确定要清空所有暂存记录吗？此操作不可恢复！')) {
+        localStorage.removeItem('savedPractices');
+        loadSavedPracticeFromStorage();
+        showMessage('所有暂存记录已清空', 'success');
     }
 }

@@ -16,6 +16,7 @@
                 <button id="convertTab" class="tab-btn active">Excel转JSON</button>
                 <button id="practiceTab" class="tab-btn">题库练习</button>
                 <button id="wrongQuestionsTab" class="tab-btn">错题练习</button>
+                <button id="savedPracticeTab" class="tab-btn">暂存练习</button>
                 <button id="historyTab" class="tab-btn">历史分数</button>
             </nav>
         </header>
@@ -146,6 +147,25 @@
                 </div>
             </section>
 
+            <!-- 暂存练习页面 -->
+            <section id="savedPracticeSection" class="tab-content">
+                <div class="card">
+                    <h2>暂存练习记录</h2>
+                    
+                    <div class="saved-practice-controls">
+                        <h3>暂存管理</h3>
+                        <div class="saved-practice-stats">
+                            <span>暂存总数: <span id="totalSavedPracticeCount">0</span></span>
+                            <button id="clearAllSavedPracticeBtn" class="action-btn">清空所有暂存</button>
+                        </div>
+                    </div>
+                    
+                    <div id="savedPracticeList" class="saved-practice-list">
+                        <p style="color: #6c757d; text-align: center;">暂无暂存记录，请在练习中保存进度</p>
+                    </div>
+                </div>
+            </section>
+
             <!-- 历史分数页面 -->
             <section id="historySection" class="tab-content">
                 <div class="card">
@@ -228,6 +248,7 @@
                         <div class="question-actions">
                             <button id="prevBtn" class="action-btn" disabled>上一题</button>
                             <button id="nextBtn" class="action-btn">下一题</button>
+                            <button id="saveProgressBtn" class="action-btn">保存进度</button>
                             <button id="submitBtn" class="action-btn primary" style="display: none;">提交答案</button>
                         </div>
                     </div>

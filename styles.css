@@ -1365,6 +1365,163 @@ main {
     }
 }
 
+/* 暂存练习样式 */
+.saved-practice-controls {
+    margin-bottom: 20px;
+}
+
+.saved-practice-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.saved-practice-stats span {
+    color: #6c757d;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.saved-practice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.saved-practice-item {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border-left: 4px solid #17a2b8;
+}
+
+.saved-practice-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.saved-practice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.saved-practice-title {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 16px;
+}
+
+.saved-practice-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.resume-btn {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.resume-btn:hover {
+    background: #138496;
+    transform: translateY(-1px);
+}
+
+.saved-practice-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.saved-practice-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.progress-tag {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    background: #e8f5e8;
+    color: #28a745;
+}
+
+.saved-practice-details {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.saved-practice-details span {
+    background: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+}
+
+.saved-practice-date {
+    color: #6c757d;
+    font-size: 12px;
+    margin-top: 10px;
+    text-align: right;
+}
+
+/* 响应式设计 - 暂存练习 */
+@media (max-width: 768px) {
+    .saved-practice-stats {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .saved-practice-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .saved-practice-actions {
+        align-self: stretch;
+        justify-content: space-between;
+    }
+    
+    .saved-practice-meta {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .saved-practice-details {
+        flex-direction: column;
+        gap: 5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .saved-practice-item {
+        padding: 15px;
+    }
+}
+
 @media (max-width: 480px) {
     .wrong-question-item {
         padding: 15px;
