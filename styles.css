@@ -547,6 +547,36 @@ main {
     color: #667eea;
 }
 
+/* 答案解析样式 */
+.answer-review {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.answer-review p {
+    margin-bottom: 10px;
+}
+
+.answer-review p:last-child {
+    margin-bottom: 0;
+}
+
+.answer-review strong {
+    color: #2c3e50;
+}
+
+.answer-review .correct {
+    color: #28a745;
+    font-weight: 500;
+}
+
+.answer-review .incorrect {
+    color: #dc3545;
+    font-weight: 500;
+}
+
 /* 判断题样式 */
 .judgment-options {
     display: flex;

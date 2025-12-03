@@ -42,6 +42,7 @@ const elements = {
     // 练习设置
     shuffleQuestions: document.getElementById('shuffleQuestions'),
     shuffleOptions: document.getElementById('shuffleOptions'),
+    showAnswerImmediately: document.getElementById('showAnswerImmediately'),
     enableRandomCount: document.getElementById('enableRandomCount'),
     randomQuestionCount: document.getElementById('randomQuestionCount'),
     difficultyFilter: document.getElementById('difficultyFilter'),
@@ -86,6 +87,7 @@ const elements = {
     wrongPracticeControls: document.querySelector('.wrong-practice-controls'),
     shuffleWrongQuestions: document.getElementById('shuffleWrongQuestions'),
     shuffleWrongOptions: document.getElementById('shuffleWrongOptions'),
+    showWrongAnswerImmediately: document.getElementById('showWrongAnswerImmediately'),
     wrongDifficultyFilter: document.getElementById('wrongDifficultyFilter'),
     wrongQuestionTypeFilter: document.getElementById('wrongQuestionTypeFilter'),
     startWrongPracticeBtn: document.getElementById('startWrongPracticeBtn'),
@@ -707,6 +709,9 @@ function selectOption(optionKey, isMultipleChoice) {
     
     // 只更新选中状态，不重新打乱选项
     updateOptionSelection(optionKey, isMultipleChoice);
+    
+    // 检查是否需要立即显示答案
+    checkAndShowAnswerImmediately();
 }
 
 // 选择判断题选项
@@ -724,6 +729,9 @@ function selectJudgmentOption(value) {
         selectedItem.checked = true;
         selectedItem.closest('.option-item').classList.add('selected');
     }
+    
+    // 检查是否需要立即显示答案
+    checkAndShowAnswerImmediately();
 }
 
 // 保存简答题答案
@@ -741,12 +749,96 @@ function handleShortAnswerInput() {
         // 保存用户输入的答案
         userAnswers[currentQuestionIndex] = shortAnswerInput.value.trim();
     }
+    
+    // 简答题不自动显示答案，需要用户点击下一题
 }
 
 // 设置用户自评分数
 function setSelfScore(questionIndex, score) {
     userScores[questionIndex] = score;
     showMessage(`已设置${score === 1 ? '正确' : '错误'}`, 'success');
+}
+
+// 检查并立即显示答案
+function checkAndShowAnswerImmediately() {
+    // 检查是否启用了即时显示答案功能
+    const shouldShowImmediately = window.isWrongQuestionPractice ?
+        elements.showWrongAnswerImmediately.checked :
+        elements.showAnswerImmediately.checked;
+    
+    if (!shouldShowImmediately) {
+        return;
+    }
+    
+    // 检查是否已作答
+    if (!userAnswers[currentQuestionIndex]) {
+        return;
+    }
+    
+    const question = currentQuestions[currentQuestionIndex];
+    
+    // 简答题和填空题不自动显示答案，需要用户点击下一题
+    if (question.type === '简答题' || question.type === '填空题') {
+        return;
+    }
+    
+    // 显示答案
+    showAnswerExplanation(question);
+}
+
+// 显示答案解析（通用函数）
+function showAnswerExplanation(question) {
+    const userAnswer = userAnswers[currentQuestionIndex] || '未作答';
+    const correctAnswer = question.correctAnswer || '无标准答案';
+    const isCorrect = checkAnswer(question, userAnswers[currentQuestionIndex], correctAnswer);
+    
+    // 获取选项内容而不是选项键
+    const getOptionText = (optionKey) => {
+        if (optionKey && question.options && question.options[optionKey]) {
+            return question.options[optionKey];
+        }
+        return optionKey;
+    };
+    
+    // 处理多选题答案
+    const formatAnswer = (answer) => {
+        if (!answer) return '未作答';
+        
+        if (Array.isArray(answer)) {
+            return answer.map(key => getOptionText(key)).join(', ');
+        } else {
+            return getOptionText(answer);
+        }
+    };
+    
+    // 处理正确答案（可能是连续字母组合或逗号分隔的字符串）
+    const formatCorrectAnswer = (answer) => {
+        if (!answer) return '无正确答案';
+        
+        // 检查是否为连续字母组合（如"ABC"）
+        if (answer.includes(',') || answer.length > 1 && /^[A-E]+$/.test(answer)) {
+            // 处理连续字母组合
+            const letters = answer.includes(',') ?
+                answer.split(',').map(key => key.trim()) :
+                answer.split('');
+            return letters.map(key => getOptionText(key)).join(', ');
+        } else {
+            return getOptionText(answer);
+        }
+    };
+    
+    elements.explanationText.innerHTML = `
+        <div class="answer-review">
+            <p><strong>你的答案：</strong>${formatAnswer(userAnswer)}</p>
+            <p><strong>正确答案：</strong>${formatCorrectAnswer(correctAnswer)}</p>
+            <p><strong>答题结果：</strong><span class="${isCorrect ? 'correct' : 'incorrect'}">${isCorrect ? '✓ 正确' : '✗ 错误'}</span></p>
+        </div>
+    `;
+    
+    elements.explanation.style.display = 'block';
+    
+    // 修改下一题按钮文本，提示用户查看答案后继续
+    elements.nextBtn.textContent = '查看答案后继续';
 }
 
 // 更新选项选中状态（不重新打乱选项）
@@ -1954,6 +2046,7 @@ function savePracticeProgress() {
         practiceSettings = {
             shuffleQuestions: elements.shuffleWrongQuestions.checked,
             shuffleOptions: elements.shuffleWrongOptions.checked,
+            showAnswerImmediately: elements.showWrongAnswerImmediately.checked,
             difficultyFilter: elements.wrongDifficultyFilter.value,
             questionTypeFilter: elements.wrongQuestionTypeFilter.value
         };
@@ -1963,6 +2056,7 @@ function savePracticeProgress() {
         practiceSettings = {
             shuffleQuestions: elements.shuffleQuestions.checked,
             shuffleOptions: elements.shuffleOptions.checked,
+            showAnswerImmediately: elements.showAnswerImmediately.checked,
             enableRandomCount: elements.enableRandomCount.checked,
             randomQuestionCount: elements.randomQuestionCount.value,
             difficultyFilter: elements.difficultyFilter.value,
@@ -2095,11 +2189,13 @@ function resumeSavedPractice(practiceId) {
         if (practice.isWrongQuestionPractice) {
             elements.shuffleWrongQuestions.checked = practice.practiceSettings.shuffleQuestions;
             elements.shuffleWrongOptions.checked = practice.practiceSettings.shuffleOptions;
+            elements.showWrongAnswerImmediately.checked = practice.practiceSettings.showAnswerImmediately;
             elements.wrongDifficultyFilter.value = practice.practiceSettings.difficultyFilter;
             elements.wrongQuestionTypeFilter.value = practice.practiceSettings.questionTypeFilter;
         } else {
             elements.shuffleQuestions.checked = practice.practiceSettings.shuffleQuestions;
             elements.shuffleOptions.checked = practice.practiceSettings.shuffleOptions;
+            elements.showAnswerImmediately.checked = practice.practiceSettings.showAnswerImmediately;
             elements.enableRandomCount.checked = practice.practiceSettings.enableRandomCount;
             elements.randomQuestionCount.value = practice.practiceSettings.randomQuestionCount;
             elements.difficultyFilter.value = practice.practiceSettings.difficultyFilter;
